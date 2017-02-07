@@ -121,8 +121,16 @@ post '/mailgun' do
   attachmentCount = params['attachment-count'].to_i
   i = 1
   while i <= attachmentCount do
-    tFile = Tempfile.new(['', params["attachment-#{i}"][:filename]])
+    filename = params["attachment-#{i}"][:filename]
     data = params["attachment-#{i}"][:tempfile].read()
+
+    data = acceptable_data(filename, data)
+
+    if data.nil?
+      return logAndResponse(401, "attachment type not accepted", logger)
+    end
+
+    tFile = Tempfile.new(['', filename])
     tFile.write(data)
     tFile.close()
 
@@ -158,6 +166,19 @@ post '/mailgun' do
   end
 
   [200, "OK"]
+end
+
+def acceptable_data(filename, data)
+  # via https://www.phaxio.com/faq#11
+  acceptedFilenameRegexes = [/\.doc$/i, /\.docx$/i, /\.pdf$/i, /\.tif$/i, /\.jpg$/i, /\.jpeg$/i, /\.odt$/i, /\.txt$/i, /\.html$/i, /\.png$/i]
+
+  acceptedFilenameRegexes.each do |regex|
+    if filename =~ regex
+      return [filename], [data]
+    end
+  end
+
+  return nil
 end
 
 def logAndResponse(responseCode, message, logger)
