@@ -1,4 +1,5 @@
 .idea
 Rack*
-start_mailphax_server.sh
 
+start_mailphax_server.sh
+Dockerfile

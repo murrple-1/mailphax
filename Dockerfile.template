@@ -1,0 +1,28 @@
+FROM ruby:2.3.0
+
+RUN apt-get update && \
+    apt-get install -y net-tools
+
+# Install gems
+ENV APP_HOME /app
+ENV HOME /root
+RUN mkdir $APP_HOME
+WORKDIR $APP_HOME
+COPY Gemfile* $APP_HOME/
+RUN bundle install
+
+# Upload source
+COPY . $APP_HOME
+
+# export variables
+ENV PHAXIO_KEY <Phaxio Key>
+ENV PHAXIO_SECRET <Phaxio Secret>
+ENV MAILGUN_KEY <Mailgun Key>
+ENV RACK_ENV production
+#ENV SENDER_WHITELIST_FILE $APP_HOME/sender-whitelist.txt
+#ENV RECIPIENT_WHITELIST_FILE $APP_HOME/recipient-whitelist.txt
+#ENV BODY_REGEX <Body Regex>
+
+# Start server
+EXPOSE 9911
+CMD ["rackup", "-p", "9911", "config.ru"]
