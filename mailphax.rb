@@ -131,7 +131,7 @@ post '/mailgun' do
       return logAndResponse(401, "attachment type not accepted", logger)
     end
 
-    (0..filenames.length).each do |j|
+    filenames.each_index do |j|
       tFile = Tempfile.new(['', filenames[j]])
       tFile.write(datas[j])
       tFile.close
@@ -181,7 +181,7 @@ def acceptable_data(filename, data)
     end
   end
 
-  if filename =~ /^winmail\.dat$/
+  if /^winmail\.dat$/.match(filename)
     # converted_filenames = []
     # converted_data = []
     # temp = TNEF.convert(data) do |temp_file|
@@ -190,7 +190,7 @@ def acceptable_data(filename, data)
 
     #   _filenames, _datas = acceptable_data(_filename, _data)
 
-    #   (0.._filenames.length).each do |i|
+    #   _filenames.each_index do |i|
     #     converted_filenames.push(_filenames[i])
     #     converted_data.push(_datas[i])
     #   end
