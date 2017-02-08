@@ -21,7 +21,7 @@ end
 
 $recipientWhitelist = nil
 
-def getRecipientWhitelist()
+def getRecipientWhitelist
   if $recipientWhitelist.nil?
     if ENV['RECIPIENT_WHITELIST_FILE']
       $recipientWhitelist = File.read(ENV['RECIPIENT_WHITELIST_FILE']).split
@@ -32,7 +32,7 @@ end
 
 $senderWhitelist = nil
 
-def getSenderWhitelist()
+def getSenderWhitelist
   if $senderWhitelist.nil?
     if ENV['SENDER_WHITELIST_FILE']
       $senderWhitelist = File.read(ENV['SENDER_WHITELIST_FILE']).split
@@ -43,7 +43,7 @@ end
 
 $bodyRegex = nil
 
-def getBodyRegex()
+def getBodyRegex
   if $bodyRegex.nil?
     if ENV['BODY_REGEX']
       $bodyRegex = ENV['BODY_REGEX'].to_regexp
@@ -53,7 +53,7 @@ def getBodyRegex()
 end
 
 def verifyMailgun(apiKey, token, timestamp, signature)
-  calculatedSignature = OpenSSL::HMAC.hexdigest(OpenSSL::Digest::SHA256.new(), apiKey, [timestamp, token].join())
+  calculatedSignature = OpenSSL::HMAC.hexdigest(OpenSSL::Digest::SHA256.new, apiKey, [timestamp, token].join)
   signature == calculatedSignature
 end
 
@@ -68,7 +68,7 @@ post '/mailgun' do
     return logAndResponse(400, "Must include a sender", logger)
   end
 
-  senderWhitelist = getSenderWhitelist()
+  senderWhitelist = getSenderWhitelist
   if not senderWhitelist.nil? and not senderWhitelist.include? sender
     return logAndResponse(401, "sender blocked", logger)
   end
@@ -78,7 +78,7 @@ post '/mailgun' do
     return logAndResponse(400, "Must include a recipient", logger)
   end
 
-  recipientWhitelist = getRecipientWhitelist()
+  recipientWhitelist = getRecipientWhitelist
   if not recipientWhitelist.nil? and not recipientWhitelist.include? recipient
     return logAndResponse(401, "recipient blocked", logger)
   end
@@ -103,13 +103,13 @@ post '/mailgun' do
   end
 
   mailgunTokenCache.push(token)
-  while mailgunTokenCache.length() > mailgunTokenCacheMaxLength
-    mailgunTokenCache.pop()
+  while mailgunTokenCache.length > mailgunTokenCacheMaxLength
+    mailgunTokenCache.pop
   end
 
   timestampSeconds = timestamp.to_f
-  nowSeconds = Time.now().to_f
-  if (timestampSeconds - nowSeconds).abs() > timestampThreshold
+  nowSeconds = Time.now.to_f
+  if (timestampSeconds - nowSeconds).abs > timestampThreshold
     return logAndResponse(400, "timestamp unsafe", logger)
   end
 
@@ -123,7 +123,7 @@ post '/mailgun' do
   i = 1
   while i <= attachmentCount do
     filename = params["attachment-#{i}"][:filename]
-    data = params["attachment-#{i}"][:tempfile].read()
+    data = params["attachment-#{i}"][:tempfile].read
 
     filenames, datas = acceptable_data(filename, data)
 
@@ -134,7 +134,7 @@ post '/mailgun' do
     (0..filenames.length).each do |j|
       tFile = Tempfile.new(['', filenames[j]])
       tFile.write(datas[j])
-      tFile.close()
+      tFile.close
 
       # use the whole file to ensure GC cannot release it yet
       attachmentFiles.push(tFile)
@@ -145,11 +145,11 @@ post '/mailgun' do
 
   if params['body-plain']
     data = params['body-plain']
-    bodyRegex = getBodyRegex()
-    if bodyRegex.nil? or bodyRegex.match(data)
+    bodyRegex = getBodyRegex
+    if bodyRegex.nil? || bodyRegex.match(data)
       tFile = Tempfile.new(['', 'email-body.txt'])
       tFile.write(data)
-      tFile.close()
+      tFile.close
 
       # use the whole file to ensure GC cannot release it yet
       attachmentFiles.push(tFile)
@@ -162,7 +162,7 @@ post '/mailgun' do
 
   attachmentFiles.each do |attachmentFile|
     begin
-      attachmentFile.unlink()
+      attachmentFile.unlink
     rescue
       # do nothing
     end
@@ -176,7 +176,7 @@ def acceptable_data(filename, data)
   acceptedFilenameRegexes = [/\.doc$/i, /\.docx$/i, /\.pdf$/i, /\.tif$/i, /\.jpg$/i, /\.jpeg$/i, /\.odt$/i, /\.txt$/i, /\.html$/i, /\.png$/i]
 
   acceptedFilenameRegexes.each do |regex|
-    if filename =~ regex
+    if regex.match(filename)
       return [filename], [data]
     end
   end
