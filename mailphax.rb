@@ -5,7 +5,7 @@ require 'pony'
 require 'tempfile'
 require 'openssl'
 require 'to_regexp'
-require 'tinnef'
+# require 'tinnef'
 
 if not ENV['PHAXIO_KEY'] or not ENV['PHAXIO_SECRET'] or not ENV['MAILGUN_KEY']
   raise "You must specify the required environment variables"
@@ -127,7 +127,7 @@ post '/mailgun' do
 
     filenames, datas = acceptable_data(filename, data)
 
-    if filenames.empty?
+    if filenames.nil? || datas.nil?
       return logAndResponse(401, "attachment type not accepted", logger)
     end
 
@@ -182,24 +182,25 @@ def acceptable_data(filename, data)
   end
 
   if filename =~ /^winmail\.dat$/
-    converted_filenames = []
-    converted_data = []
-    temp = TNEF.convert(data) do |temp_file|
-      _filename = File.basename(temp_file.path)
-      _data = temp_file.read
+    # converted_filenames = []
+    # converted_data = []
+    # temp = TNEF.convert(data) do |temp_file|
+    #   _filename = File.basename(temp_file.path)
+    #   _data = temp_file.read
 
-      _filenames, _datas = acceptable_data(_filename, _data)
+    #   _filenames, _datas = acceptable_data(_filename, _data)
 
-      (0.._filenames.length).each do |i|
-        converted_filenames.push(_filenames[i])
-        converted_data.push(_datas[i])
-      end
-    end
+    #   (0.._filenames.length).each do |i|
+    #     converted_filenames.push(_filenames[i])
+    #     converted_data.push(_datas[i])
+    #   end
+    # end
 
-    return converted_filenames, converted_data
+    # return converted_filenames, converted_data
+    return [], []
   end
 
-  return [], []
+  return nil, nil
 end
 
 def logAndResponse(responseCode, message, logger)
