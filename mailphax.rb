@@ -5,6 +5,7 @@ require 'pony'
 require 'tempfile'
 require 'openssl'
 require 'to_regexp'
+require 'tinnef'
 
 if not ENV['PHAXIO_KEY'] or not ENV['PHAXIO_SECRET'] or not ENV['MAILGUN_KEY']
   raise "You must specify the required environment variables"
@@ -124,18 +125,20 @@ post '/mailgun' do
     filename = params["attachment-#{i}"][:filename]
     data = params["attachment-#{i}"][:tempfile].read()
 
-    data = acceptable_data(filename, data)
+    filenames, datas = acceptable_data(filename, data)
 
-    if data.nil?
+    if filenames.empty?
       return logAndResponse(401, "attachment type not accepted", logger)
     end
 
-    tFile = Tempfile.new(['', filename])
-    tFile.write(data)
-    tFile.close()
+    (0..filenames.length).each do |j|
+      tFile = Tempfile.new(['', filenames[j]])
+      tFile.write(datas[j])
+      tFile.close()
 
-    # use the whole file to ensure GC cannot release it yet
-    attachmentFiles.push(tFile)
+      # use the whole file to ensure GC cannot release it yet
+      attachmentFiles.push(tFile)
+    end
 
     i += 1
   end
@@ -178,7 +181,25 @@ def acceptable_data(filename, data)
     end
   end
 
-  return nil
+  if filename =~ /^winmail\.dat$/
+    converted_filenames = []
+    converted_data = []
+    temp = TNEF.convert(data) do |temp_file|
+      _filename = File.basename(temp_file.path)
+      _data = temp_file.read
+
+      _filenames, _datas = acceptable_data(_filename, _data)
+
+      (0.._filenames.length).each do |i|
+        converted_filenames.push(_filenames[i])
+        converted_data.push(_datas[i])
+      end
+    end
+
+    return converted_filenames, converted_data
+  end
+
+  return [], []
 end
 
 def logAndResponse(responseCode, message, logger)
