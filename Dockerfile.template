@@ -11,9 +11,6 @@ WORKDIR $APP_HOME
 COPY Gemfile* $APP_HOME/
 RUN bundle install
 
-# Upload source
-COPY . $APP_HOME
-
 # export variables
 ENV PHAXIO_KEY <Phaxio Key>
 ENV PHAXIO_SECRET <Phaxio Secret>
@@ -23,6 +20,10 @@ ENV RACK_ENV production
 #ENV RECIPIENT_WHITELIST_FILE $APP_HOME/recipient-whitelist.txt
 #ENV BODY_REGEX <Body Regex>
 
-# Start server
 EXPOSE 9911
+
+# Upload source
+COPY . $APP_HOME
+
+# Start server
 CMD ["rackup", "-p", "9911", "config.ru"]
