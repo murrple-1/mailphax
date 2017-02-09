@@ -5,6 +5,7 @@ require 'pony'
 require 'tempfile'
 require 'openssl'
 require 'to_regexp'
+require 'thread'
 # require 'tinnef'
 
 if not ENV['PHAXIO_KEY'] or not ENV['PHAXIO_SECRET'] or not ENV['MAILGUN_KEY']
@@ -204,6 +205,8 @@ def _log_and_response(response_code, message, logger)
   return [response_code, message]
 end
 
+$_fax_mutex = Mutex.new
+
 def send_fax(from_email, to_email, attachment_files)
   Phaxio.config do |config|
     config.api_key = ENV["PHAXIO_KEY"]
@@ -218,8 +221,13 @@ def send_fax(from_email, to_email, attachment_files)
     options["filename[#{idx}]"] = File.new(attachment_files[idx].path)
   end
 
-  logger.info("#{from_email} is attempting to send #{attachment_files.length} files to #{number}...")
-  result = Phaxio.send_fax(options)
+  result = nil
+  $_fax_mutex.synchronize do
+    logger.info("#{from_email} is attempting to send #{attachment_files.length} files to #{number}...")
+    result = Phaxio.send_fax(options)
+    sleep 2
+  end
+
   result = JSON.parse(result.body)
 
   if result['success']
