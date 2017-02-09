@@ -119,8 +119,7 @@ post '/mailgun' do
   attachment_files = []
 
   attachment_count = params['attachment-count'].to_i
-  i = 1
-  while i <= attachment_count do
+  (1...(attachment_count + 1)).each do |i|
     filename = params["attachment-#{i}"][:filename]
     data = params["attachment-#{i}"][:tempfile].read
 
@@ -138,8 +137,6 @@ post '/mailgun' do
       # use the whole file to ensure GC cannot release it yet
       attachment_files.push(t_file)
     end
-
-    i += 1
   end
 
   if params['body-plain']
