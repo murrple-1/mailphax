@@ -206,13 +206,12 @@ def _log_and_response(response_code, message, logger)
 end
 
 $_fax_mutex = Mutex.new
+Phaxio.config do |config|
+  config.api_key = ENV["PHAXIO_KEY"]
+  config.api_secret = ENV["PHAXIO_SECRET"]
+end
 
 def send_fax(from_email, to_email, attachment_files)
-  Phaxio.config do |config|
-    config.api_key = ENV["PHAXIO_KEY"]
-    config.api_secret = ENV["PHAXIO_SECRET"]
-  end
-
   number = Mail::Address.new(to_email).local
 
   options = {to: number, callback_url: "mailto:#{from_email}" }
