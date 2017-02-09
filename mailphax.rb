@@ -19,125 +19,124 @@ get '/mailgun' do
   [400, "Mailgun supported, but callbacks must be POSTs"]
 end
 
-$recipientWhitelist = nil
+$_recipient_whitelist = nil
 
-def getRecipientWhitelist
-  if $recipientWhitelist.nil?
+def get_recipient_whitelist
+  if $_recipient_whitelist.nil?
     if ENV['RECIPIENT_WHITELIST_FILE']
-      $recipientWhitelist = File.read(ENV['RECIPIENT_WHITELIST_FILE']).split
+      $_recipient_whitelist = File.read(ENV['RECIPIENT_WHITELIST_FILE']).split
     end
   end
-  return $recipientWhitelist
+  return $_recipient_whitelist
 end
 
-$senderWhitelist = nil
+$_sender_whitelist = nil
 
-def getSenderWhitelist
-  if $senderWhitelist.nil?
+def get_sender_whitelist
+  if $_sender_whitelist.nil?
     if ENV['SENDER_WHITELIST_FILE']
-      $senderWhitelist = File.read(ENV['SENDER_WHITELIST_FILE']).split
+      $_sender_whitelist = File.read(ENV['SENDER_WHITELIST_FILE']).split
     end
   end
-  return $senderWhitelist
+  return $_sender_whitelist
 end
 
-$bodyRegex = nil
+$_body_regex = nil
 
-def getBodyRegex
-  if $bodyRegex.nil?
+def get_body_regex
+  if $_body_regex.nil?
     if ENV['BODY_REGEX']
-      $bodyRegex = ENV['BODY_REGEX'].to_regexp
+      $_body_regex = ENV['BODY_REGEX'].to_regexp
     end
   end
-  return $bodyRegex
+  return $_body_regex
 end
 
-def verifyMailgun(apiKey, token, timestamp, signature)
-  calculatedSignature = OpenSSL::HMAC.hexdigest(OpenSSL::Digest::SHA256.new, apiKey, [timestamp, token].join)
-  signature == calculatedSignature
+def verify_mailgun(apiKey, token, timestamp, signature)
+  calculated_signature = OpenSSL::HMAC.hexdigest(OpenSSL::Digest::SHA256.new, apiKey, [timestamp, token].join)
+  signature == calculated_signature
 end
 
-mailgunTokenCache = []
+$_mailgun_token_cache = []
+MailgunTokenCacheMaxLength = 50
+TimestampThreshold = 30.0
 
 post '/mailgun' do
-  mailgunTokenCacheMaxLength = 50
-  timestampThreshold = 30.0
-
   sender = params['sender']
   if not sender
-    return logAndResponse(400, "Must include a sender", logger)
+    return _log_and_response(400, "Must include a sender", logger)
   end
 
-  senderWhitelist = getSenderWhitelist
-  if not senderWhitelist.nil? and not senderWhitelist.include? sender
-    return logAndResponse(401, "sender blocked", logger)
+  sender_whitelist = get_sender_whitelist
+  if not sender_whitelist.nil? and not sender_whitelist.include? sender
+    return _log_and_response(401, "sender blocked", logger)
   end
 
   recipient = params['recipient']
   if not recipient
-    return logAndResponse(400, "Must include a recipient", logger)
+    return _log_and_response(400, "Must include a recipient", logger)
   end
 
-  recipientWhitelist = getRecipientWhitelist
-  if not recipientWhitelist.nil? and not recipientWhitelist.include? recipient
-    return logAndResponse(401, "recipient blocked", logger)
+  recipient_whitelist = get_recipient_whitelist
+  if not recipient_whitelist.nil? and not recipient_whitelist.include? recipient
+    return _log_and_response(401, "recipient blocked", logger)
   end
 
   token = params['token']
   if not token
-    return logAndResponse(400, "Must include a token", logger)
+    return _log_and_response(400, "Must include a token", logger)
   end
 
   signature = params['signature']
   if not signature
-    return logAndResponse(400, "Must include a signature", logger)
+    return _log_and_response(400, "Must include a signature", logger)
   end
 
   timestamp = params['timestamp']
   if not timestamp
-    return logAndResponse(400, "Must include a timestamp", logger)
+    return _log_and_response(400, "Must include a timestamp", logger)
   end
 
-  if mailgunTokenCache.include?(token)
-    return logAndResponse(400, "duplicate token", logger)
+  if $_mailgun_token_cache.include?(token)
+    return _log_and_response(400, "duplicate token", logger)
   end
 
-  mailgunTokenCache.push(token)
-  while mailgunTokenCache.length > mailgunTokenCacheMaxLength
-    mailgunTokenCache.pop
+  $_mailgun_token_cache.push(token)
+  while $_mailgun_token_cache.length > MailgunTokenCacheMaxLength
+    $_mailgun_token_cache.pop
   end
 
-  timestampSeconds = timestamp.to_f
-  nowSeconds = Time.now.to_f
-  if (timestampSeconds - nowSeconds).abs > timestampThreshold
-    return logAndResponse(400, "timestamp unsafe", logger)
+  timestamp_seconds = timestamp.to_f
+  now_seconds = Time.now.to_f
+  if (timestamp_seconds - now_seconds).abs > TimestampThreshold
+    return _log_and_response(400, "timestamp unsafe", logger)
   end
 
-  if not verifyMailgun(ENV['MAILGUN_KEY'], token, timestamp, signature)
-    return logAndResponse(400, "signature does not verify", logger)
+  if not verify_mailgun(ENV['MAILGUN_KEY'], token, timestamp, signature)
+    return _log_and_response(400, "signature does not verify", logger)
   end
 
-  attachmentFiles = []
+  attachment_files = []
 
-  attachmentCount = params['attachment-count'].to_i
+  attachment_count = params['attachment-count'].to_i
   i = 1
-  while i <= attachmentCount do
+  while i <= attachment_count do
     filename = params["attachment-#{i}"][:filename]
     data = params["attachment-#{i}"][:tempfile].read
 
     filenames, datas = acceptable_data(filename, data)
 
     if filenames.nil? || datas.nil?
-      return logAndResponse(401, "attachment type not accepted", logger)
+      return _log_and_response(401, "attachment type not accepted", logger)
     end
 
     filenames.each_index do |j|
-      tFile = Tempfile.new(['', filenames[j]])
-      tFile.write(datas[j])
-      tFile.close
+      t_file = Tempfile.new(['', filenames[j]])
+      t_file.write(datas[j])
+      t_file.close
 
       # use the whole file to ensure GC cannot release it yet
-      attachmentFiles.push(tFile)
+      attachment_files.push(t_file)
     end
 
     i += 1
@@ -145,24 +144,24 @@ post '/mailgun' do
 
   if params['body-plain']
     data = params['body-plain']
-    bodyRegex = getBodyRegex
-    if bodyRegex.nil? || bodyRegex.match(data)
-      tFile = Tempfile.new(['', 'email-body.txt'])
-      tFile.write(data)
-      tFile.close
+    body_regex = get_body_regex
+    if body_regex.nil? || body_regex.match(data)
+      t_file = Tempfile.new(['', 'email-body.txt'])
+      t_file.write(data)
+      t_file.close
 
       # use the whole file to ensure GC cannot release it yet
-      attachmentFiles.push(tFile)
+      attachment_files.push(t_file)
     else
-      return logAndResponse(401, "body not accepted", logger)
+      return _log_and_response(401, "body not accepted", logger)
     end
   end
 
-  sendFax(sender, recipient, attachmentFiles)
+  send_fax(sender, recipient, attachment_files)
 
-  attachmentFiles.each do |attachmentFile|
+  attachment_files.each do |attachment_file|
     begin
-      attachmentFile.unlink
+      attachment_file.unlink
     rescue
       # do nothing
     end
@@ -171,11 +170,11 @@ post '/mailgun' do
   [200, "OK"]
 end
 
-def acceptable_data(filename, data)
-  # via https://www.phaxio.com/faq#11
-  acceptedFilenameRegexes = [/\.doc$/i, /\.docx$/i, /\.pdf$/i, /\.tif$/i, /\.jpg$/i, /\.jpeg$/i, /\.odt$/i, /\.txt$/i, /\.html$/i, /\.png$/i]
+# via https://www.phaxio.com/faq#11
+AcceptedFilenameRegexes = [/\.doc$/i, /\.docx$/i, /\.pdf$/i, /\.tif$/i, /\.jpg$/i, /\.jpeg$/i, /\.odt$/i, /\.txt$/i, /\.html$/i, /\.png$/i]
 
-  acceptedFilenameRegexes.each do |regex|
+def acceptable_data(filename, data)
+  AcceptedFilenameRegexes.each do |regex|
     if regex.match(filename)
       return [filename], [data]
     end
@@ -203,26 +202,26 @@ def acceptable_data(filename, data)
   return nil, nil
 end
 
-def logAndResponse(responseCode, message, logger)
+def _log_and_response(response_code, message, logger)
   logger.info(message)
-  return [responseCode, message]
+  return [response_code, message]
 end
 
-def sendFax(fromEmail, toEmail, attachmentFiles)
+def send_fax(from_email, to_email, attachment_files)
   Phaxio.config do |config|
     config.api_key = ENV["PHAXIO_KEY"]
     config.api_secret = ENV["PHAXIO_SECRET"]
   end
 
-  number = Mail::Address.new(toEmail).local
+  number = Mail::Address.new(to_email).local
 
-  options = {to: number, callback_url: "mailto:#{fromEmail}" }
+  options = {to: number, callback_url: "mailto:#{from_email}" }
 
-  attachmentFiles.each_index do |idx|
-    options["filename[#{idx}]"] = File.new(attachmentFiles[idx].path)
+  attachment_files.each_index do |idx|
+    options["filename[#{idx}]"] = File.new(attachment_files[idx].path)
   end
 
-  logger.info("#{fromEmail} is attempting to send #{attachmentFiles.length} files to #{number}...")
+  logger.info("#{from_email} is attempting to send #{attachment_files.length} files to #{number}...")
   result = Phaxio.send_fax(options)
   result = JSON.parse(result.body)
 
@@ -235,10 +234,10 @@ def sendFax(fromEmail, toEmail, attachmentFiles)
       #send mail back to the user telling them there was a problem
 
       Pony.mail(
-        :to => fromEmail,
+        :to => from_email,
         :from => (ENV['SMTP_FROM'] || 'mailphax@example.com'),
         :subject => 'Mailfax: There was a problem sending your fax',
-        :body => "There was a problem faxing your #{attachmentFiles.length} files to #{number}: " + result['message'],
+        :body => "There was a problem faxing your #{attachment_files.length} files to #{number}: " + result['message'],
         :via => :smtp,
         :via_options => {
           :address                => ENV['SMTP_HOST'],
