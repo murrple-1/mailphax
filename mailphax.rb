@@ -58,8 +58,8 @@ def verify_mailgun(apiKey, token, timestamp, signature)
 end
 
 $_mailgun_token_cache = []
-MailgunTokenCacheMaxLength = 50
-TimestampThreshold = 30.0
+MAILGUN_TOKEN_CACHE_MAX_LENGTH = 50
+TIMESTAMP_THRESHOLD_SECONDS = 30.0
 
 post '/mailgun' do
   sender = params['sender']
@@ -102,13 +102,13 @@ post '/mailgun' do
   end
 
   $_mailgun_token_cache.push(token)
-  while $_mailgun_token_cache.length > MailgunTokenCacheMaxLength
+  while $_mailgun_token_cache.length > MAILGUN_TOKEN_CACHE_MAX_LENGTH
     $_mailgun_token_cache.pop
   end
 
   timestamp_seconds = timestamp.to_f
   now_seconds = Time.now.to_f
-  if (timestamp_seconds - now_seconds).abs > TimestampThreshold
+  if (timestamp_seconds - now_seconds).abs > TIMESTAMP_THRESHOLD_SECONDS
     return _log_and_response(400, "timestamp unsafe", logger)
   end
 
@@ -171,10 +171,10 @@ post '/mailgun' do
 end
 
 # via https://www.phaxio.com/faq#11
-AcceptedFilenameRegexes = [/\.doc$/i, /\.docx$/i, /\.pdf$/i, /\.tif$/i, /\.jpg$/i, /\.jpeg$/i, /\.odt$/i, /\.txt$/i, /\.html$/i, /\.png$/i]
+ACCEPTED_FILENAME_REGEXES = [/\.doc$/i, /\.docx$/i, /\.pdf$/i, /\.tif$/i, /\.jpg$/i, /\.jpeg$/i, /\.odt$/i, /\.txt$/i, /\.html$/i, /\.png$/i]
 
 def acceptable_data(filename, data)
-  AcceptedFilenameRegexes.each do |regex|
+  ACCEPTED_FILENAME_REGEXES.each do |regex|
     if regex.match(filename)
       return [filename], [data]
     end
