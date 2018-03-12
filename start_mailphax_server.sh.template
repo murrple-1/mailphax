@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source /usr/local/rvm/scripts/rvm
+. /usr/local/rvm/scripts/rvm
 
 PORT=8080
 HOST='0.0.0.0'
